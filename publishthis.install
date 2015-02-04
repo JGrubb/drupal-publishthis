@@ -48,3 +48,25 @@ function publishthis_uninstall() {
   
 }
 
+function publishthis_default_roles() {
+  $roles = array();
+  $roles[PT_AUTHOR_ROLE] = array(
+    'name' => PT_AUTHOR_ROLE,
+    'weight' => 0
+  );
+  return $roles;
+}
+
+/*
+ * Adding Publishthis Author role
+ */
+
+function publishthis_update_7001(&$sandbox) {
+  $roles = publishthis_default_roles();
+  foreach($roles as $val) {
+    if (!user_role_load_by_name($val)) {
+      $role = (object) $val;
+      user_role_save($role);
+    }
+  }
+}

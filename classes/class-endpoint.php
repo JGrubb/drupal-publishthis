@@ -5,187 +5,219 @@
  * Current Actions
  * 1 - Verify
  * 2 - Publish
+ * 3 - getAuthors
  */
 
 
 class Publishthis_Endpoint {
-	private $obj_api;
-	private $obj_publish;
+  private $obj_api;
+  private $obj_publish;
 
-	function __construct() {
-		$this->obj_api = new Publishthis_API();
-		$this->obj_publish = new Publishthis_Publish();
+  function __construct() {
+	$this->obj_api = new Publishthis_API();
+	$this->obj_publish = new Publishthis_Publish();
+  }
+
+  /**
+   * Escape sprecial characters
+   */
+  function escapeJsonString( $value ) { // list from www.json.org: (\b backspace, \f formfeed)
+	$escapers = array( "\\", "/", "\"", "\n", "\r", "\t", "\x08", "\x0c" );
+	$replacements = array( "\\\\", "\\/", "\\\"", "\\n", "\\r", "\\t", "\\f", "\\b" );
+	$result = str_replace( $escapers, $replacements, $value );
+	$escapers = array( '\":\"', '\",\"', '{\"', '\"}' );
+	$replacements = array( '":"', '","', '{"', '"}' );
+	$result = str_replace( $escapers, $replacements, $result );
+	return $result;
+  }
+
+  /**
+   * Returns json response with failed status
+   */
+  function sendFailure( $message ) {
+	$obj = null;
+
+	$obj->success = false;
+	$obj->errorMessage = $this->escapeJsonString( $message );
+
+	$this->sendJSON( $obj );
+  }
+
+  /**
+   * Returns json response with succeess status
+   */
+  function sendSuccess( $message, $args = array() ) {
+	$obj = new stdClass();
+
+	$obj->success = true;
+	$obj->errorMessage = null;
+
+	if (isset($args['action']) && $args['action'] == "getAuthors") {
+	  $obj->authors = $args['authors'];
 	}
 
-	/**
-	 * Escape sprecial characters
-	 */
-	function escapeJsonString( $value ) { // list from www.json.org: (\b backspace, \f formfeed)
-		$escapers = array( "\\", "/", "\"", "\n", "\r", "\t", "\x08", "\x0c" );
-		$replacements = array( "\\\\", "\\/", "\\\"", "\\n", "\\r", "\\t", "\\f", "\\b" );
-		$result = str_replace( $escapers, $replacements, $value );
-		$escapers = array( '\":\"', '\",\"', '{\"', '\"}' );
-		$replacements = array( '":"', '","', '{"', '"}' );
-		$result = str_replace( $escapers, $replacements, $result );
-		return $result;
+	$this->sendJSON( $obj );
+  }
+
+  /*
+* Send object in JSON format
+*/
+  private function sendJSON( $obj ) {
+	header( 'Content-Type: application/json' );
+	echo json_encode( $obj );
+  }
+
+  /**
+   * Verify endpoint action
+   */
+  private function actionVerify() {
+	//first check to make sure we have our api token
+	$apiToken = $this->obj_api->_get_token( 'api_token' );
+
+	if ( empty( $apiToken ) ) {
+
+	  $message = array(
+		'message' => 'Verify Plugin Endpoint',
+		'status' => 'error',
+		'details' => 'Asked to verify our install at: '. date( "Y-m-d H:i:s" ) . ' failed because api token is not filled out' );
+	  $this->obj_api->_log_message( $message, "1" );
+
+	  $this->sendFailure( "No API Key Entered" );
+	  return;
 	}
 
-	/**
-	 * Returns json response with failed status
-	 */
-	function sendFailure( $message ) {
-		$obj = null;
+	//then, make a easy call to our api that should return our basic info.
+	$apiResponse = $this->obj_api->get_client_info();
 
-		$obj->success = false;
-		$obj->errorMessage = $this->escapeJsonString( $message );
+	if ( empty( $apiResponse ) ) {
+	  $message = array(
+		'message' => 'Verify Plugin Endpoint',
+		'status' => 'error',
+		'details' => 'Asked to verify our install at: '. date( "Y-m-d H:i:s" ) . ' failed because api token is not valid' );
+	  $this->obj_api->_log_message( $message, "1" );
 
-		$this->sendJSON( $obj );
+	  $this->sendFailure( "API Key Entered is not Valid" );
+	  return;
 	}
 
-	/**
-	 * Returns json response with succeess status
-	 */
-	function sendSuccess( $message ) {
-		$obj = null;
+	//if we got here, then it is a valid api token, and the plugin is installed.
 
-		$obj->success = true;
-		$obj->errorMessage = null;
+	$message = array(
+	  'message' => 'Verify Plugin Endpoint',
+	  'status' => 'info',
+	  'details' => 'Asked to verify our install at: '. date( "Y-m-d H:i:s" ) );
+	$this->obj_api->_log_message( $message, "2" );
 
-		$this->sendJSON( $obj );
+	$this->sendSuccess( "" );
+  }
+
+  /**
+   * Publish endpoint action
+   * we get the information and then publish the feed
+   * here is the info being passed right now
+   * action: "publish",
+   * feedId: 123,
+   * templateId: 456,
+   * clientId: 789,
+   * userId: 21,
+   * publishDate: Date
+   *
+   * @param integer $feedId
+   */
+  private function actionPublish( $feedId ) {
+
+	if ( empty( $feedId ) ) {
+	  $this->sendFailure( "Empty feed id" );
+	  return;
 	}
 
-	/*
-	* Send object in JSON format
-	*/
-	private function sendJSON( $obj ) {
-		header( 'Content-Type: application/json' );
-		echo json_encode( $obj );
+	$arrFeeds = array();
+	$arrFeeds[] = $feedId;
+
+	//ok, now go try and publish the feed passed in
+
+	try{
+	  $this->obj_publish->publish_specific_feeds( $arrFeeds );
+	}catch( Exception $ex ) {
+	  //looks like there was an internal error in publish, we will need to send a failure.
+	  //no need to log here, as our internal methods have all ready logged it
+
+	  $this->sendFailure( $ex->getMessage() );
+	  return;
 	}
 
-	/**
-	 * Verify endpoint action
-	 */
-	private function actionVerify() {
-		//first check to make sure we have our api token
-		$apiToken = $this->obj_api->_get_token( 'api_token' );
+	$this->sendSuccess( "published" );
+	return;
+  }
 
-		if ( empty( $apiToken ) ) {
+  private function actionGetAuthors() {
+	try {
+	  $role = user_role_load_by_name(PT_AUTHOR_ROLE);
+	  $query = db_select('users_roles', 'ur')
+		->fields('ur', array('uid'))
+		->condition('rid', $role->rid)
+		->execute();
+	  $results = $query->fetchCol();
+	  $users = user_load_multiple($results);
+	  $authors = array();
+	  foreach ($users as $user) {
+		$author = new stdClass();
+		$author->id = $user->uid;
+		$author->name = $user->name;
+		$authors[] = $author;
+	  }
+	  $args = array();
+	  $args['action'] = 'getAuthors';
+	  $args['authors'] = $authors;
+	  $this->sendSuccess($args['action'], $args);
+	} catch (Exception $e) {
+	  $this->sendFailure($ex->getMessage());
+	  return;
+	}
+  }
 
-			$message = array(
-				'message' => 'Verify Plugin Endpoint',
-				'status' => 'error',
-				'details' => 'Asked to verify our install at: '. date( "Y-m-d H:i:s" ) . ' failed because api token is not filled out' );
-			$this->obj_api->_log_message( $message, "1" );
+  /**
+   * Process request main function
+   */
+  function process_request() {
+	global $pt_settings_value;
 
-			$this->sendFailure( "No API Key Entered" );
+	try{
+	  $bodyContent = file_get_contents( 'php://input' );
+
+	  $this->obj_api->_log_message( array( 'message' => 'Endpoint Request', 'status' => 'info', 'details' => $bodyContent ), "2" );
+
+	  $arrEndPoint = json_decode( $bodyContent, true );
+	  $action = $arrEndPoint["action"];
+
+	  switch ( $action ) {
+		case "verify":
+		  $this->actionVerify();
+		  break;
+
+		case "publish":
+		  if( $pt_settings_value['curated_publish'] != 'publishthis_import_from_manager' ) {
+			$this->sendFailure( "Publishing through CMS is disabled" );
 			return;
-		}
+		  }
+		  $feedId = intval( $arrEndPoint["feedId"], 10 );
+		  $this->actionPublish( $feedId );
+		  break;
+		case "getAuthors":
+		  $this->actionGetAuthors();
+		  break;
 
-		//then, make a easy call to our api that should return our basic info.
-		$apiResponse = $this->obj_api->get_client_info();
+		default:
+		  $this->sendFailure( "Empty or bad request made to endpoint" );
+		  break;
+	  }
 
-		if ( empty( $apiResponse ) ) {
-			$message = array(
-				'message' => 'Verify Plugin Endpoint',
-				'status' => 'error',
-				'details' => 'Asked to verify our install at: '. date( "Y-m-d H:i:s" ) . ' failed because api token is not valid' );
-			$this->obj_api->_log_message( $message, "1" );
+	} catch( Exception $ex ) {
+	  //we will log this to the pt logger, but we always need to send back a failure if this occurs
 
-			$this->sendFailure( "API Key Entered is not Valid" );
-			return;
-		}
-
-		//if we got here, then it is a valid api token, and the plugin is installed.
-
-		$message = array(
-			'message' => 'Verify Plugin Endpoint',
-			'status' => 'info',
-			'details' => 'Asked to verify our install at: '. date( "Y-m-d H:i:s" ) );
-		$this->obj_api->_log_message( $message, "2" );
-
-		$this->sendSuccess( "" );
+	  $this->sendFailure( $ex->getMessage() );
 	}
 
-	/**
-	 * Publish endpoint action
-	 * we get the information and then publish the feed
-	 * here is the info being passed right now
-	 * action: "publish",
-	 * feedId: 123,
-	 * templateId: 456,
-	 * clientId: 789,
-	 * userId: 21,
-	 * publishDate: Date
-	 *
-	 * @param integer $feedId
-	 */
-	private function actionPublish( $feedId ) {
-		
-		if ( empty( $feedId ) ) {
-			$this->sendFailure( "Empty feed id" );
-			return;
-		}
-
-		$arrFeeds = array();
-		$arrFeeds[] = $feedId;
-
-		//ok, now go try and publish the feed passed in
-
-		try{
-			$this->obj_publish->publish_specific_feeds( $arrFeeds );
-		}catch( Exception $ex ) {
-			//looks like there was an internal error in publish, we will need to send a failure.
-			//no need to log here, as our internal methods have all ready logged it
-
-			$this->sendFailure( $ex->getMessage() );
-			return;
-		}
-
-		$this->sendSuccess( "published" );
-		return;
-	}	
-
-	/**
-	 * Process request main function
-	 */
-	function process_request() {
-		global $pt_settings_value;
-
-		try{
-			$bodyContent = file_get_contents( 'php://input' );
-
-			$this->obj_api->_log_message( array( 'message' => 'Endpoint Request', 'status' => 'info', 'details' => $bodyContent ), "2" );
-
-			$arrEndPoint = json_decode( $bodyContent, true );
-			$action = $arrEndPoint["action"];
-
-			switch ( $action ) {
-			case "verify":
-				$this->actionVerify();
-				break;
-
-			case "publish":
-				if( $pt_settings_value['curated_publish'] != 'publishthis_import_from_manager' ) {
-					$this->sendFailure( "Publishing through CMS is disabled" );
-					return;
-				}
-				$feedId = intval( $arrEndPoint["feedId"], 10 );
-				$this->actionPublish( $feedId );
-				break;
-
-			default:
-				$this->sendFailure( "Empty or bad request made to endpoint" );
-				break;
-			}
-
-		} catch( Exception $ex ) {
-			//we will log this to the pt logger, but we always need to send back a failure if this occurs
-
-			$this->sendFailure( $ex->getMessage() );
-		}
-		
-		return;
-	}
+	return;
+  }
 }
-
-?>

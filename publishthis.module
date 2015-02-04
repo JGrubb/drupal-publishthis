@@ -1,5 +1,7 @@
 <?php
 
+define('PT_AUTHOR_ROLE', 'Publishthis Author');
+
 /**
  * Implementation of hook_init
  */
