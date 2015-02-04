@@ -23,12 +23,6 @@ function publishthis_init() {
   // css uses to manage fields style
   drupal_add_css(drupal_get_path('module', 'publishthis') . '/assets/css/publishthis.admin.css');
 
-  $query_params = drupal_get_query_parameters(null, array());
-  if( count($query_params) == 1 && $query_params['q']=='pt_endpoint') {
-    init_pt_endpoint();
-    exit;
-  }
-    
   // common js
   drupal_add_js(drupal_get_path('module', 'publishthis') . '/assets/js/publishthis.js');
 
@@ -51,6 +45,8 @@ function reset_client_info() {
  */
 function publishthis_menu() {
 
+  $module_path = drupal_get_path('module', 'publishthis');
+
   $items = array();
   
   $items['admin/config/system/publishthis/settings'] = array(
@@ -66,7 +62,7 @@ function publishthis_menu() {
     'page arguments' => array('publishthis_settings'),
     'access arguments' => array('administer site configuration'),
     'file' => 'publishthis.admin.settings.inc',
-    'file path' => drupal_get_path('module', 'publishthis') . '/admin'
+    'file path' => $module_path . '/admin'
   );
 
   $items['admin/config/system/publishthis/publishing-actions'] = array(
@@ -75,7 +71,7 @@ function publishthis_menu() {
     'page callback' => array('publishthis_publishingactions'),
     'access arguments' => array('administer site configuration'),
     'file' => 'publishthis.admin.publishingactions.inc',
-    'file path' => drupal_get_path('module', 'publishthis') . '/admin'
+    'file path' => $module_path . '/admin'
   );  
     
   $items['admin/config/system/publishthis/publishing-addactions'] = array(
@@ -85,7 +81,7 @@ function publishthis_menu() {
     'page arguments' => array('publishthis_addnew_publishingactions'),
     'access arguments' => array('administer site configuration'),
     'file' => 'publishthis.admin.publishingactions.inc',
-    'file path' => drupal_get_path('module', 'publishthis') . '/admin',
+    'file path' => $module_path . '/admin',
   );
   
   $items['admin/config/system/publishthis/publishing-editactions/%'] = array(
@@ -95,7 +91,7 @@ function publishthis_menu() {
     'page arguments' => array('edit_publishthis_publishing_actions'),
     'access arguments' => array('administer site configuration'),
     'file' => 'publishthis.admin.publishingactions.inc',
-    'file path' => drupal_get_path('module', 'publishthis') . '/admin',
+    'file path' => $module_path . '/admin',
   );
   
   $items['publishthis/publishing-actions/delete/%'] = array(
@@ -104,7 +100,7 @@ function publishthis_menu() {
     'page callback' => 'delete_publishthis_publishing_actions',
     'access arguments' => array('administer site configuration'),
     'file' => 'publishthis.admin.publishingactions.inc',
-    'file path' => drupal_get_path('module', 'publishthis') . '/admin',
+    'file path' => $module_path . '/admin',
   );
 
   
@@ -115,7 +111,7 @@ function publishthis_menu() {
     'page arguments' => array('publishthis_styleoptions'),
     'access arguments' => array('administer site configuration'),
     'file' => 'publishthis.admin.styleoptions.inc',
-    'file path' => drupal_get_path('module', 'publishthis') . '/admin'
+    'file path' => $module_path . '/admin'
   );
   
   $items['admin/config/system/publishthis/log-messages'] = array(
@@ -124,7 +120,7 @@ function publishthis_menu() {
     'page callback' => 'publishthis_log_messages',
     'access arguments' => array('administer site configuration'),
     'file' => 'publishthis.admin.logmessages.inc',
-    'file path' => drupal_get_path('module', 'publishthis') . '/admin',
+    'file path' => $module_path . '/admin',
     'weight' => 10
   );
   
@@ -134,7 +130,7 @@ function publishthis_menu() {
     'page callback' => 'publishthis_log_messages_delete',
     'access arguments' => array('administer site configuration'),
     'file' => 'publishthis.admin.logmessages.inc',
-    'file path' => drupal_get_path('module', 'publishthis') . '/admin',
+    'file path' => $module_path . '/admin',
   );
   
   $items['publishthis/log-messages/export/%'] = array(
@@ -143,7 +139,13 @@ function publishthis_menu() {
     'page callback' => 'publishthis_log_messages_export',
     'access arguments' => array('administer site configuration'),
     'file' => 'publishthis.admin.logmessages.inc',
-    'file path' => drupal_get_path('module', 'publishthis') . '/admin',
+    'file path' => $module_path . '/admin',
+  );
+
+  $items['pt_endpoint'] = array(
+    'type' => MENU_CALLBACK,
+    'page callback' => 'init_pt_endpoint',
+    'access arguments' => array('access content')
   );
   
   return $items;
